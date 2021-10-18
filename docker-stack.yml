@@ -1,0 +1,65 @@
+version: '3.8'
+
+configs:
+  traefik-dynamic-configuration.yml:
+    external: true
+
+secrets:
+  ***.crt:
+    external: true
+
+  ***.key:
+    external: true
+
+services:
+  traefik:
+    image: "traefik:v2.5"
+    command:
+      - "--providers.docker.endpoint=unix:///var/run/docker.sock"
+      - "--providers.docker.swarmMode=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--providers.docker.network=traefik_swarm"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.websecure.address=:443"
+      - "--api.dashboard=true"
+      - "--log.level=WARN"
+      - "--accesslog=true"
+      - "--api.insecure=true"
+      - "--entrypoints.web.http.redirections.entryPoint.to=websecure"
+      - "--entrypoints.web.http.redirections.entryPoint.scheme=https"
+      - "--providers.file.filename=/etc/traefik/configs/traefik-dynamic-configuration.yml"
+    ports:
+      - "80:80"
+      - "443:443"
+      - 8080:8080
+    configs:
+      - source: traefik-dynamic-configuration.yml
+        target: /etc/traefik/configs/traefik-dynamic-configuration.yml
+    secrets:
+      - ***.crt
+      - ***.key
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    deploy:
+      placement:
+        constraints:
+          - node.role == manager
+      labels:
+        - "traefik.enable=true"
+        - "traefik.http.routers.dashboard.rule=Host(`***`)"
+        - "traefik.http.routers.dashboard.service=api@internal"
+        - "traefik.http.routers.dashboard.entrypoints=websecure"
+       #- "traefik.http.routers.dashboard.tls.certresolver=letsencrypt"
+        - "traefik.http.services.dashboard.loadbalancer.server.port=8080"
+        - "traefik.http.routers.http-catchall.rule=hostregexp(`{host:.+}`)"
+        - "traefik.http.routers.http-catchall.entrypoints=web"
+        - "traefik.http.routers.dashboard.tls=true"
+       #- "traefik.http.routers.http-catchall.middlewares=redirect-to-https"
+       #- "traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https"
+
+    networks:
+      - traefik_swarm
+
+networks:
+  traefik_swarm:
+    external: true
