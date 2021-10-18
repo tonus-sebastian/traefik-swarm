@@ -1,0 +1,5 @@
+# Traefik dynamic configuration
+tls:
+  certificates:
+    - certFile: /run/secrets/***.crt
+      keyFile: /run/secrets/***.key
